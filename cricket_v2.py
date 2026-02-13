@@ -299,7 +299,7 @@ else:
     # PAGE: TEAM GENERATOR
     # ============================================================================
     
-elif page == "Team Generator":
+    elif page == "Team Generator":
         st.header("⚖️ Team Generator")
         
         # ADMIN ONLY
