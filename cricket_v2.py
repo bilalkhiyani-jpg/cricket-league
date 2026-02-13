@@ -299,175 +299,183 @@ else:
     # OTHER PAGES
     # ============================================================================
     
-    elif page == "Team Generator":
-        elif not st.session_state.players:
-            st.warning("⚠️ No players registered yet. Add players first.")
-        else:
-            # STEP 1: Select game
-            st.subheader("1️⃣ Select Game")
+elif page == "Team Generator":
+        st.header("⚖️ Team Generator")
+        
+        # ADMIN ONLY
+        if st.session_state.user_role in ["master_admin", "admin"]:
             
-            game_options = [f"{g['date']} - {g['location']}" for g in st.session_state.games]
-            selected_game_idx = st.selectbox("Choose game", range(len(game_options)), format_func=lambda x: game_options[x])
-            selected_game = st.session_state.games[selected_game_idx]
-            
-            st.info(f"**Players who voted:** {len(selected_game['votes'])} players")
-            if selected_game['votes']:
-                st.write(", ".join(selected_game['votes']))
-            
-            st.markdown("---")
-            
-            # STEP 2: Select number of teams
-            st.subheader("2️⃣ Number of Teams")
-            num_teams = st.slider("How many teams?", 2, 4, 2)
-            
-            st.markdown("---")
-            
-            # STEP 3: Generate teams
-            st.subheader("3️⃣ Generate Balanced Teams")
-            
-            if st.button("🎲 Generate Teams", type="primary"):
-                # Get players who voted
-                voting_players = [p for p in st.session_state.players if p['name'] in selected_game['votes']]
+            # Check if there are games and players
+            if not st.session_state.games:
+                st.warning("⚠️ No games created yet. Create a game first.")
+            elif not st.session_state.players:
+                st.warning("⚠️ No players registered yet. Add players first.")
+            else:
+                # STEP 1: Select game
+                st.subheader("1️⃣ Select Game")
                 
-                if len(voting_players) < num_teams:
-                    st.error(f"Need at least {num_teams} players! Only {len(voting_players)} voted.")
-                else:
-                    # Sort by rating (descending)
-                    sorted_players = sorted(voting_players, key=lambda x: x['rating'], reverse=True)
-                    
-                    # Initialize teams
-                    teams = [[] for _ in range(num_teams)]
-                    team_strengths = [0] * num_teams
-                    
-                    # Snake draft distribution
-                    for i, player in enumerate(sorted_players):
-                        # Determine which team gets this player (snake pattern)
-                        round_num = i // num_teams
-                        if round_num % 2 == 0:
-                            team_idx = i % num_teams
-                        else:
-                            team_idx = num_teams - 1 - (i % num_teams)
-                        
-                        teams[team_idx].append(player)
-                        team_strengths[team_idx] += player['rating']
-                    
-                    # Store in session state
-                    st.session_state.generated_teams = teams
-                    st.session_state.team_strengths = team_strengths
-                    st.session_state.selected_game_id = selected_game['id']
-                    
-                    st.success("✅ Teams generated!")
-                    st.rerun()
-            
-            # STEP 4: Display and edit teams
-            if 'generated_teams' in st.session_state and st.session_state.get('selected_game_id') == selected_game['id']:
+                game_options = [f"{g['date']} - {g['location']}" for g in st.session_state.games]
+                selected_game_idx = st.selectbox("Choose game", range(len(game_options)), format_func=lambda x: game_options[x])
+                selected_game = st.session_state.games[selected_game_idx]
+                
+                st.info(f"**Players who voted:** {len(selected_game['votes'])} players")
+                if selected_game['votes']:
+                    st.write(", ".join(selected_game['votes']))
+                
                 st.markdown("---")
-                st.subheader("4️⃣ Review & Edit Teams")
                 
-                teams = st.session_state.generated_teams
+                # STEP 2: Select number of teams
+                st.subheader("2️⃣ Number of Teams")
+                num_teams = st.slider("How many teams?", 2, 4, 2)
                 
-                # Team names and captains
-                team_names = []
-                team_captains = []
+                st.markdown("---")
                 
-                cols = st.columns(num_teams)
+                # STEP 3: Generate teams
+                st.subheader("3️⃣ Generate Balanced Teams")
                 
-                for i in range(num_teams):
-                    with cols[i]:
-                        st.markdown(f"### Team {i+1}")
+                if st.button("🎲 Generate Teams", type="primary"):
+                    # Get players who voted
+                    voting_players = [p for p in st.session_state.players if p['name'] in selected_game['votes']]
+                    
+                    if len(voting_players) < num_teams:
+                        st.error(f"Need at least {num_teams} players! Only {len(voting_players)} voted.")
+                    else:
+                        # Sort by rating (descending)
+                        sorted_players = sorted(voting_players, key=lambda x: x['rating'], reverse=True)
                         
-                        # Team name
-                        team_name = st.text_input(f"Team Name", value=f"Team {chr(65+i)}", key=f"team_name_{i}")
-                        team_names.append(team_name)
+                        # Initialize teams
+                        teams = [[] for _ in range(num_teams)]
+                        team_strengths = [0] * num_teams
                         
-                        # Team strength
-                        st.metric("Total Strength", st.session_state.team_strengths[i])
-                        
-                        # Captain selection
-                        if teams[i]:
-                            captain = st.selectbox(
-                                "Captain",
-                                [p['name'] for p in teams[i]],
-                                key=f"captain_{i}"
-                            )
-                            team_captains.append(captain)
+                        # Snake draft distribution
+                        for i, player in enumerate(sorted_players):
+                            # Determine which team gets this player (snake pattern)
+                            round_num = i // num_teams
+                            if round_num % 2 == 0:
+                                team_idx = i % num_teams
+                            else:
+                                team_idx = num_teams - 1 - (i % num_teams)
                             
-                            # Display players
-                            st.write("**Players:**")
-                            for player in teams[i]:
-                                if player['name'] == captain:
-                                    st.write(f"⭐ **{player['name']}** (C) - {player['strength']} (Rating: {player['rating']})")
-                                else:
-                                    st.write(f"• {player['name']} - {player['strength']} (Rating: {player['rating']})")
-                        else:
-                            st.warning("No players in this team")
-                
-                # Manual adjustment section
-                st.markdown("---")
-                st.subheader("5️⃣ Manual Adjustments (Optional)")
-                
-                with st.expander("🔄 Move Players Between Teams"):
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        # Select player to move
-                        all_team_players = []
-                        for i, team in enumerate(teams):
-                            for player in team:
-                                all_team_players.append(f"{player['name']} (Team {i+1})")
+                            teams[team_idx].append(player)
+                            team_strengths[team_idx] += player['rating']
                         
-                        if all_team_players:
-                            player_to_move = st.selectbox("Select Player", all_team_players)
-                    
-                    with col2:
-                        # Select destination team
-                        dest_team = st.selectbox("Move to Team", [f"Team {i+1}" for i in range(num_teams)])
-                    
-                    with col3:
-                        st.write("")
-                        st.write("")
-                        if st.button("↔️ Move Player"):
-                            # Extract player name and current team
-                            player_name = player_to_move.split(" (Team")[0]
-                            current_team_idx = int(player_to_move.split("Team ")[1].rstrip(")")) - 1
-                            dest_team_idx = int(dest_team.split(" ")[1]) - 1
-                            
-                            # Find and move player
-                            for player in teams[current_team_idx]:
-                                if player['name'] == player_name:
-                                    teams[current_team_idx].remove(player)
-                                    teams[dest_team_idx].append(player)
-                                    
-                                    # Recalculate strengths
-                                    st.session_state.team_strengths[current_team_idx] -= player['rating']
-                                    st.session_state.team_strengths[dest_team_idx] += player['rating']
-                                    
-                                    st.success(f"✅ Moved {player_name}")
-                                    st.rerun()
-                                    break
+                        # Store in session state
+                        st.session_state.generated_teams = teams
+                        st.session_state.team_strengths = team_strengths
+                        st.session_state.selected_game_id = selected_game['id']
+                        
+                        st.success("✅ Teams generated!")
+                        st.rerun()
                 
-                # Save teams button
-                st.markdown("---")
-                if st.button("💾 Finalize Teams", type="primary"):
-                    # Store finalized teams with names and captains
-                    finalized_teams = []
+                # STEP 4: Display and edit teams
+                if 'generated_teams' in st.session_state and st.session_state.get('selected_game_id') == selected_game['id']:
+                    st.markdown("---")
+                    st.subheader("4️⃣ Review & Edit Teams")
+                    
+                    teams = st.session_state.generated_teams
+                    
+                    # Team names and captains
+                    team_names = []
+                    team_captains = []
+                    
+                    cols = st.columns(num_teams)
+                    
                     for i in range(num_teams):
-                        finalized_teams.append({
-                            'name': team_names[i],
-                            'captain': team_captains[i] if i < len(team_captains) else None,
-                            'players': [p['name'] for p in teams[i]],
-                            'strength': st.session_state.team_strengths[i]
-                        })
+                        with cols[i]:
+                            st.markdown(f"### Team {i+1}")
+                            
+                            # Team name
+                            team_name = st.text_input(f"Team Name", value=f"Team {chr(65+i)}", key=f"team_name_{i}")
+                            team_names.append(team_name)
+                            
+                            # Team strength
+                            st.metric("Total Strength", st.session_state.team_strengths[i])
+                            
+                            # Captain selection
+                            if teams[i]:
+                                captain = st.selectbox(
+                                    "Captain",
+                                    [p['name'] for p in teams[i]],
+                                    key=f"captain_{i}"
+                                )
+                                team_captains.append(captain)
+                                
+                                # Display players
+                                st.write("**Players:**")
+                                for player in teams[i]:
+                                    if player['name'] == captain:
+                                        st.write(f"⭐ **{player['name']}** (C) - {player['strength']} (Rating: {player['rating']})")
+                                    else:
+                                        st.write(f"• {player['name']} - {player['strength']} (Rating: {player['rating']})")
+                            else:
+                                st.warning("No players in this team")
                     
-                    # Store for match results
-                    st.session_state.finalized_teams = finalized_teams
-                    st.session_state.finalized_game_id = selected_game['id']
+                    # Manual adjustment section
+                    st.markdown("---")
+                    st.subheader("5️⃣ Manual Adjustments (Optional)")
                     
-                    st.success("✅ Teams finalized! Go to Match Results to record the game.")
-                    st.balloons()
-    
-    else:
-        st.warning("⚠️ Admin access required")
+                    with st.expander("🔄 Move Players Between Teams"):
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            # Select player to move
+                            all_team_players = []
+                            for i, team in enumerate(teams):
+                                for player in team:
+                                    all_team_players.append(f"{player['name']} (Team {i+1})")
+                            
+                            if all_team_players:
+                                player_to_move = st.selectbox("Select Player", all_team_players)
+                        
+                        with col2:
+                            # Select destination team
+                            dest_team = st.selectbox("Move to Team", [f"Team {i+1}" for i in range(num_teams)])
+                        
+                        with col3:
+                            st.write("")
+                            st.write("")
+                            if st.button("↔️ Move Player"):
+                                # Extract player name and current team
+                                player_name = player_to_move.split(" (Team")[0]
+                                current_team_idx = int(player_to_move.split("Team ")[1].rstrip(")")) - 1
+                                dest_team_idx = int(dest_team.split(" ")[1]) - 1
+                                
+                                # Find and move player
+                                for player in teams[current_team_idx]:
+                                    if player['name'] == player_name:
+                                        teams[current_team_idx].remove(player)
+                                        teams[dest_team_idx].append(player)
+                                        
+                                        # Recalculate strengths
+                                        st.session_state.team_strengths[current_team_idx] -= player['rating']
+                                        st.session_state.team_strengths[dest_team_idx] += player['rating']
+                                        
+                                        st.success(f"✅ Moved {player_name}")
+                                        st.rerun()
+                                        break
+                    
+                    # Save teams button
+                    st.markdown("---")
+                    if st.button("💾 Finalize Teams", type="primary"):
+                        # Store finalized teams with names and captains
+                        finalized_teams = []
+                        for i in range(num_teams):
+                            finalized_teams.append({
+                                'name': team_names[i],
+                                'captain': team_captains[i] if i < len(team_captains) else None,
+                                'players': [p['name'] for p in teams[i]],
+                                'strength': st.session_state.team_strengths[i]
+                            })
+                        
+                        # Store for match results
+                        st.session_state.finalized_teams = finalized_teams
+                        st.session_state.finalized_game_id = selected_game['id']
+                        
+                        st.success("✅ Teams finalized! Go to Match Results to record the game.")
+                        st.balloons()
+        
+        else:
+            st.warning("⚠️ Admin access required")
     
     elif page == "Match Results":
         st.header("📊 Match Results")
