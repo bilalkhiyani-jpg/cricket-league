@@ -106,7 +106,7 @@ with tab3:
 # MAIN APP (after login)
 # ============================================================================
 
-else:
+else:  # ← This must align all the way left (no indentation)
     # Header with logout
     col1, col2 = st.columns([3, 1])
     with col1:
