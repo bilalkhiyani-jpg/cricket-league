@@ -1,4 +1,72 @@
-# PLAYER ACCESS
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+
+st.set_page_config(page_title="PK Expat Cricket", page_icon="🏏", layout="wide")
+
+# Initialize session state
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'user_role' not in st.session_state:
+    st.session_state.user_role = None
+if 'username' not in st.session_state:
+    st.session_state.username = None
+if 'games' not in st.session_state:
+    st.session_state.games = []
+if 'players' not in st.session_state:
+    st.session_state.players = []
+
+# Master admin credentials
+MASTER_ADMIN_PASSWORD = "cricket2026"
+
+# Regular admin passwords
+ADMIN_PASSWORDS = {
+    "admin1": "admin123",
+    "admin2": "admin456"
+}
+
+# ============================================================================
+# LOGIN PAGE
+# ============================================================================
+
+if not st.session_state.authenticated:
+    st.title("🏏 PK Expat Cricket League")
+    st.markdown("---")
+    
+    tab1, tab2, tab3 = st.tabs(["🔐 Master Admin", "👨‍💼 Admin Login", "👤 Player Access"])
+    
+    # MASTER ADMIN
+    with tab1:
+        st.subheader("Master Admin Login")
+        master_password = st.text_input("Master Password", type="password", key="master_pwd")
+        
+        if st.button("Login as Master Admin"):
+            if master_password == MASTER_ADMIN_PASSWORD:
+                st.session_state.authenticated = True
+                st.session_state.user_role = "master_admin"
+                st.session_state.username = "Master Admin"
+                st.success("✅ Master Admin access granted!")
+                st.rerun()
+            else:
+                st.error("❌ Incorrect password")
+    
+    # REGULAR ADMIN
+    with tab2:
+        st.subheader("Admin Login")
+        admin_name = st.selectbox("Select Admin", list(ADMIN_PASSWORDS.keys()))
+        admin_password = st.text_input("Password", type="password", key="admin_pwd")
+        
+        if st.button("Login as Admin"):
+            if admin_password == ADMIN_PASSWORDS[admin_name]:
+                st.session_state.authenticated = True
+                st.session_state.user_role = "admin"
+                st.session_state.username = admin_name
+                st.success(f"✅ Welcome {admin_name}!")
+                st.rerun()
+            else:
+                st.error("❌ Incorrect password")
+    
+    # PLAYER ACCESS
     with tab3:
         st.subheader("Player Access")
         st.info("Select your name if you're a registered player")
@@ -141,10 +209,6 @@ else:
     elif page == "Players":
         st.header("👥 Player Management")
         
-        # Initialize players
-        if 'players' not in st.session_state:
-            st.session_state.players = []
-        
         # ADMIN ONLY
         if st.session_state.user_role in ["master_admin", "admin"]:
             
@@ -181,8 +245,8 @@ else:
             with col2:
                 st.subheader("✏️ Edit/Delete Player")
                 if st.session_state.players:
-                    player_names = [p['name'] for p in st.session_state.players]
-                    selected_player = st.selectbox("Select Player", player_names)
+                    player_names_list = [p['name'] for p in st.session_state.players]
+                    selected_player = st.selectbox("Select Player", player_names_list)
                     
                     player_data = next(p for p in st.session_state.players if p['name'] == selected_player)
                     
