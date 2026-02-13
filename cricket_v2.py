@@ -479,7 +479,108 @@ else:
     
     elif page == "Match Results":
         st.header("📊 Match Results")
-        st.info("Coming in next step...")
+        
+        # ADMIN ONLY
+        if st.session_state.user_role in ["master_admin", "admin"]:
+            
+            # Check if teams are finalized
+            if 'finalized_teams' not in st.session_state:
+                st.warning("⚠️ No teams finalized yet. Generate teams first in Team Generator.")
+            else:
+                finalized_teams = st.session_state.finalized_teams
+                num_teams = len(finalized_teams)
+                
+                st.info(f"Recording results for {num_teams} teams")
+                
+                # Display teams
+                st.subheader("📋 Teams Playing")
+                cols = st.columns(num_teams)
+                
+                for i, team in enumerate(finalized_teams):
+                    with cols[i]:
+                        st.markdown(f"### {team['name']}")
+                        st.write(f"**Captain:** ⭐ {team['captain']}")
+                        st.write(f"**Strength:** {team['strength']}")
+                        st.write("**Players:**")
+                        for player_name in team['players']:
+                            if player_name == team['captain']:
+                                st.write(f"⭐ {player_name} (C)")
+                            else:
+                                st.write(f"• {player_name}")
+                
+                st.markdown("---")
+                
+                # Select winner
+                st.subheader("🏆 Match Result")
+                
+                team_names = [team['name'] for team in finalized_teams]
+                winner = st.selectbox("Select Winning Team", team_names)
+                
+                # Record button
+                if st.button("💾 Record Match Result", type="primary"):
+                    
+                    # Create match record
+                    match_record = {
+                        'date': datetime.now().strftime('%Y-%m-%d'),
+                        'game_id': st.session_state.finalized_game_id,
+                        'teams': finalized_teams,
+                        'winner': winner,
+                        'num_teams': num_teams
+                    }
+                    
+                    # Initialize matches list if doesn't exist
+                    if 'matches' not in st.session_state:
+                        st.session_state.matches = []
+                    
+                    st.session_state.matches.append(match_record)
+                    
+                    # Update player stats
+                    winning_team = next(team for team in finalized_teams if team['name'] == winner)
+                    winning_players = winning_team['players']
+                    
+                    # All players who played
+                    all_playing_players = []
+                    for team in finalized_teams:
+                        all_playing_players.extend(team['players'])
+                    
+                    # Update each player
+                    for player in st.session_state.players:
+                        if player['name'] in all_playing_players:
+                            player['matches_played'] += 1
+                            if player['name'] in winning_players:
+                                player['matches_won'] += 1
+                                player['points'] += 1
+                    
+                    st.success(f"✅ Match recorded! {winner} wins! 🏆")
+                    st.balloons()
+                    
+                    # Clear finalized teams
+                    del st.session_state.finalized_teams
+                    del st.session_state.finalized_game_id
+                    if 'generated_teams' in st.session_state:
+                        del st.session_state.generated_teams
+                    
+                    st.info("Teams cleared. Generate new teams for next match.")
+                
+                # Show recent matches
+                if 'matches' in st.session_state and st.session_state.matches:
+                    st.markdown("---")
+                    st.subheader("📜 Recent Matches")
+                    
+                    for i, match in enumerate(reversed(st.session_state.matches[-5:]), 1):
+                        with st.expander(f"Match {len(st.session_state.matches) - i + 1} - {match['date']} - Winner: {match['winner']}"):
+                            st.write(f"**Number of teams:** {match['num_teams']}")
+                            
+                            for team in match['teams']:
+                                if team['name'] == match['winner']:
+                                    st.write(f"🏆 **{team['name']}** (Captain: {team['captain']}) - WINNER")
+                                else:
+                                    st.write(f"**{team['name']}** (Captain: {team['captain']})")
+                                st.write(f"Players: {', '.join(team['players'])}")
+                                st.write("")
+        
+        else:
+            st.warning("⚠️ Admin access required")
     
     elif page == "Leaderboard":
         st.header("🏆 Leaderboard")
