@@ -80,15 +80,27 @@ if not player_names:
 
 player_name = st.selectbox("Select Your Name", ["-- Select --"] + player_names)
         
-        if st.button("Continue as Player"):
-            if player_name != "-- Select --":
-                st.session_state.authenticated = True
-                st.session_state.user_role = "player"
-                st.session_state.username = player_name
-                st.success(f"✅ Welcome {player_name}!")
-                st.rerun()
-            else:
-                st.error("❌ Please select your name")
+with tab3:
+    st.subheader("Player Access")
+    st.info("Select your name if you're a registered player")
+    
+    # Get player names from session state
+    player_names = [p['name'] for p in st.session_state.get('players', [])]
+    if not player_names:
+        st.warning("⚠️ No players registered yet. Contact admin.")
+        player_names = []
+    
+    player_name = st.selectbox("Select Your Name", ["-- Select --"] + player_names)
+    
+    if st.button("Continue as Player"):  # ← This line must align with lines above
+        if player_name != "-- Select --":
+            st.session_state.authenticated = True
+            st.session_state.user_role = "player"
+            st.session_state.username = player_name
+            st.success(f"✅ Welcome {player_name}!")
+            st.rerun()
+        else:
+            st.error("❌ Please select your name")
 
 # ============================================================================
 # MAIN APP (after login)
