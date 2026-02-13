@@ -287,7 +287,7 @@ else:
                     'Points': p['points']
                 } for p in st.session_state.players]
                 
-                df = pd.DataFrame(df_data)
+df = pd.DataFrame(df_data)
                 st.dataframe(df, use_container_width=True, hide_index=True)
             else:
                 st.info("No players yet")
@@ -299,15 +299,7 @@ else:
     # OTHER PAGES
     # ============================================================================
     
-elif page == "Team Generator":
-    st.header("⚖️ Team Generator")
-    
-    # ADMIN ONLY
-    if st.session_state.user_role in ["master_admin", "admin"]:
-        
-        # Check if there are games and players
-        if not st.session_state.games:
-            st.warning("⚠️ No games created yet. Create a game first.")
+    elif page == "Team Generator":
         elif not st.session_state.players:
             st.warning("⚠️ No players registered yet. Add players first.")
         else:
