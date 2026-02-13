@@ -24,7 +24,7 @@ ADMIN_PASSWORDS = {
 }
 
 # Dummy player list (will be dynamic later)
-PLAYER_LIST = ["Adnan", "Ahmed", "Ali", "Hassan", "Kamran", "Usman", "Bilal", "Fahad"]
+# This will be populated dynamically from st.session_state.players
 
 # ============================================================================
 # LOGIN PAGE
@@ -72,7 +72,13 @@ if not st.session_state.authenticated:
         st.subheader("Player Access")
         st.info("Select your name if you're a registered player")
         
-        player_name = st.selectbox("Select Your Name", ["-- Select --"] + PLAYER_LIST)
+# Get player names from session state
+player_names = [p['name'] for p in st.session_state.get('players', [])]
+if not player_names:
+    st.warning("⚠️ No players registered yet. Contact admin.")
+    player_names = []
+
+player_name = st.selectbox("Select Your Name", ["-- Select --"] + player_names)
         
         if st.button("Continue as Player"):
             if player_name != "-- Select --":
@@ -201,9 +207,98 @@ else:
     # OTHER PAGES (placeholders)
     # ============================================================================
     
-    elif page == "Players":
-        st.header("👥 Players")
-        st.info("Coming in next step...")
+elif page == "Players":
+    st.header("👥 Player Management")
+    
+    # Initialize players in session state
+    if 'players' not in st.session_state:
+        st.session_state.players = []
+    
+    # ADMIN ONLY
+    if st.session_state.user_role in ["master_admin", "admin"]:
+        
+        col1, col2 = st.columns([1, 1])
+        
+        # ADD PLAYER
+        with col1:
+            st.subheader("➕ Add New Player")
+            with st.form("add_player"):
+                new_name = st.text_input("Player Name")
+                new_rating = st.slider("Skill Rating (1-10)", 1, 10, 5)
+                new_strength = st.selectbox("Player Strength", ["Batsman", "Bowler", "All-rounder", "Wicket Keeper"])
+                
+                if st.form_submit_button("Add Player"):
+                    if new_name:
+                        if any(p['name'].lower() == new_name.lower() for p in st.session_state.players):
+                            st.error(f"❌ {new_name} already exists!")
+                        else:
+                            player = {
+                                'name': new_name,
+                                'rating': new_rating,
+                                'strength': new_strength,
+                                'matches_played': 0,
+                                'matches_won': 0,
+                                'points': 0
+                            }
+                            st.session_state.players.append(player)
+                            st.success(f"✅ {new_name} added!")
+                            st.rerun()
+                    else:
+                        st.error("Enter a name!")
+        
+        # EDIT/DELETE PLAYER
+        with col2:
+            st.subheader("✏️ Edit/Delete Player")
+            if st.session_state.players:
+                player_names = [p['name'] for p in st.session_state.players]
+                selected_player = st.selectbox("Select Player", player_names)
+                
+                player_data = next(p for p in st.session_state.players if p['name'] == selected_player)
+                
+                with st.form("edit_player"):
+                    edit_rating = st.slider("Update Rating", 1, 10, player_data['rating'])
+                    edit_strength = st.selectbox(
+                        "Update Strength",
+                        ["Batsman", "Bowler", "All-rounder", "Wicket Keeper"],
+                        index=["Batsman", "Bowler", "All-rounder", "Wicket Keeper"].index(player_data['strength'])
+                    )
+                    
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        if st.form_submit_button("💾 Update"):
+                            player_data['rating'] = edit_rating
+                            player_data['strength'] = edit_strength
+                            st.success(f"✅ {selected_player} updated!")
+                            st.rerun()
+                    
+                    with col_b:
+                        if st.form_submit_button("🗑️ Delete"):
+                            st.session_state.players = [p for p in st.session_state.players if p['name'] != selected_player]
+                            st.success(f"🗑️ {selected_player} deleted!")
+                            st.rerun()
+            else:
+                st.info("No players to edit")
+        
+        # DISPLAY ALL PLAYERS
+        st.markdown("---")
+        st.subheader("📋 All Players")
+        if st.session_state.players:
+            df_data = [{
+                'Name': p['name'],
+                'Rating': p['rating'],
+                'Strength': p['strength'],
+                'Matches': p['matches_played'],
+                'Wins': p['matches_won'],
+                'Points': p['points']
+            } for p in st.session_state.players]
+            
+            df = pd.DataFrame(df_data)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No players yet")
+    
+    else:
+        st.warning("⚠️ Admin access required")
     
     elif page == "Team Generator":
         st.header("⚖️ Team Generator")
