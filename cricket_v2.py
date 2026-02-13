@@ -285,9 +285,9 @@ else:
                     'Matches': p['matches_played'],
                     'Wins': p['matches_won'],
                     'Points': p['points']
-                } for p in st.session_state.players]
+} for p in st.session_state.players]
                 
-df = pd.DataFrame(df_data)
+                df = pd.DataFrame(df_data)
                 st.dataframe(df, use_container_width=True, hide_index=True)
             else:
                 st.info("No players yet")
