@@ -1,10 +1,74 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import json
+import os
 
 st.set_page_config(page_title="PK Expat Cricket", page_icon="🏏", layout="wide")
 
-# Initialize session state
+# ============================================================================
+# DATA PERSISTENCE SETUP
+# ============================================================================
+
+DATA_DIR = "cricket_data"
+PLAYERS_FILE = f"{DATA_DIR}/players.json"
+GAMES_FILE = f"{DATA_DIR}/games.json"
+MATCHES_FILE = f"{DATA_DIR}/matches.json"
+
+# Create data directory
+os.makedirs(DATA_DIR, exist_ok=True)
+
+def save_players():
+    """Save players to JSON"""
+    with open(PLAYERS_FILE, 'w') as f:
+        json.dump(st.session_state.players, f, indent=2)
+
+def load_players():
+    """Load players from JSON"""
+    if os.path.exists(PLAYERS_FILE):
+        with open(PLAYERS_FILE, 'r') as f:
+            return json.load(f)
+    return []
+
+def save_games():
+    """Save games to JSON"""
+    with open(GAMES_FILE, 'w') as f:
+        json.dump(st.session_state.games, f, indent=2)
+
+def load_games():
+    """Load games from JSON"""
+    if os.path.exists(GAMES_FILE):
+        with open(GAMES_FILE, 'r') as f:
+            return json.load(f)
+    return []
+
+def save_matches():
+    """Save matches to JSON"""
+    with open(MATCHES_FILE, 'w') as f:
+        json.dump(st.session_state.matches, f, indent=2)
+
+def load_matches():
+    """Load matches from JSON"""
+    if os.path.exists(MATCHES_FILE):
+        with open(MATCHES_FILE, 'r') as f:
+            return json.load(f)
+    return []
+
+# ============================================================================
+# AUTHENTICATION
+# ============================================================================
+
+MASTER_ADMIN_PASSWORD = "bk@cricket123"
+
+ADMIN_PASSWORDS = {
+    "admin1": "bk@cricket123",
+    "admin2": "bk@cricket123"
+}
+
+# ============================================================================
+# SESSION STATE INITIALIZATION
+# ============================================================================
+
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'user_role' not in st.session_state:
@@ -17,15 +81,6 @@ if 'players' not in st.session_state:
     st.session_state.players = load_players()
 if 'matches' not in st.session_state:
     st.session_state.matches = load_matches()
-
-# Master admin credentials
-MASTER_ADMIN_PASSWORD = "cricket2026"
-
-# Regular admin passwords
-ADMIN_PASSWORDS = {
-    "admin1": "admin123",
-    "admin2": "admin456"
-}
 
 # ============================================================================
 # LOGIN PAGE
@@ -73,7 +128,6 @@ if not st.session_state.authenticated:
         st.subheader("Player Access")
         st.info("Select your name if you're a registered player")
         
-        # Get player names from session state
         player_names = [p['name'] for p in st.session_state.get('players', [])]
         if not player_names:
             st.warning("⚠️ No players registered yet. Contact admin.")
@@ -92,11 +146,11 @@ if not st.session_state.authenticated:
                 st.error("❌ Please select your name")
 
 # ============================================================================
-# MAIN APP (after login)
+# MAIN APP
 # ============================================================================
 
 else:
-    # Header with logout
+    # Header
     col1, col2 = st.columns([3, 1])
     with col1:
         st.title("🏏 PK Expat Cricket League")
@@ -111,15 +165,15 @@ else:
     
     st.markdown("---")
     
-    # Navigation based on role
+    # Navigation
     if st.session_state.user_role in ["master_admin", "admin"]:
         page = st.sidebar.radio("Navigate", ["Upcoming Games", "Players", "Team Generator", "Match Results", "Leaderboard"])
-    else:  # player
+    else:
         page = st.sidebar.radio("Navigate", ["Upcoming Games", "Leaderboard"])
     
-    # ============================================================================
+    # ========================================================================
     # PAGE: UPCOMING GAMES
-    # ============================================================================
+    # ========================================================================
     
     if page == "Upcoming Games":
         st.header("📅 Upcoming Games")
@@ -152,6 +206,7 @@ else:
                         'created_by': st.session_state.username
                     }
                     st.session_state.games.append(game)
+                    save_games()
                     st.success(f"✅ Game created!")
                     st.rerun()
             
@@ -187,11 +242,13 @@ else:
                                 st.success("✅ You're in!")
                                 if st.button("❌ Cancel", key=f"cancel_{game['id']}"):
                                     game['votes'].remove(player_name)
+                                    save_games()
                                     st.rerun()
                             else:
                                 if st.button("✅ I'm In!", key=f"join_{game['id']}"):
                                     if len(game['votes']) < game['max_players']:
                                         game['votes'].append(player_name)
+                                        save_games()
                                         st.rerun()
                                     else:
                                         st.error("Game is full!")
@@ -200,18 +257,18 @@ else:
                         if st.session_state.user_role in ["master_admin", "admin"]:
                             if st.button("🗑️ Delete", key=f"delete_{game['id']}"):
                                 st.session_state.games = [g for g in st.session_state.games if g['id'] != game['id']]
+                                save_games()
                                 st.rerun()
         else:
             st.info("No games scheduled yet")
     
-    # ============================================================================
+    # ========================================================================
     # PAGE: PLAYERS
-    # ============================================================================
+    # ========================================================================
     
     elif page == "Players":
         st.header("👥 Player Management")
         
-        # ADMIN ONLY
         if st.session_state.user_role in ["master_admin", "admin"]:
             
             col1, col2 = st.columns([1, 1])
@@ -238,11 +295,11 @@ else:
                                     'points': 0
                                 }
                                 st.session_state.players.append(player)
+                                save_players()
                                 st.success(f"✅ {new_name} added!")
                                 st.rerun()
                         else:
                             st.error("Enter a name!")
-
             
             # EDIT/DELETE PLAYER
             with col2:
@@ -266,12 +323,14 @@ else:
                             if st.form_submit_button("💾 Update"):
                                 player_data['rating'] = edit_rating
                                 player_data['strength'] = edit_strength
+                                save_players()
                                 st.success(f"✅ {selected_player} updated!")
                                 st.rerun()
                         
                         with col_b:
                             if st.form_submit_button("🗑️ Delete"):
                                 st.session_state.players = [p for p in st.session_state.players if p['name'] != selected_player]
+                                save_players()
                                 st.success(f"🗑️ {selected_player} deleted!")
                                 st.rerun()
                 else:
@@ -288,7 +347,7 @@ else:
                     'Matches': p['matches_played'],
                     'Wins': p['matches_won'],
                     'Points': p['points']
-} for p in st.session_state.players]
+                } for p in st.session_state.players]
                 
                 df = pd.DataFrame(df_data)
                 st.dataframe(df, use_container_width=True, hide_index=True)
@@ -298,17 +357,15 @@ else:
         else:
             st.warning("⚠️ Admin access required")
     
-    # ============================================================================
+    # ========================================================================
     # PAGE: TEAM GENERATOR
-    # ============================================================================
+    # ========================================================================
     
     elif page == "Team Generator":
         st.header("⚖️ Team Generator")
         
-        # ADMIN ONLY
         if st.session_state.user_role in ["master_admin", "admin"]:
             
-            # Check if there are games and players
             if not st.session_state.games:
                 st.warning("⚠️ No games created yet. Create a game first.")
             elif not st.session_state.players:
@@ -327,7 +384,7 @@ else:
                 
                 st.markdown("---")
                 
-                # STEP 2: Select number of teams
+                # STEP 2: Number of teams
                 st.subheader("2️⃣ Number of Teams")
                 num_teams = st.slider("How many teams?", 2, 4, 2)
                 
@@ -337,22 +394,17 @@ else:
                 st.subheader("3️⃣ Generate Balanced Teams")
                 
                 if st.button("🎲 Generate Teams", type="primary"):
-                    # Get players who voted
                     voting_players = [p for p in st.session_state.players if p['name'] in selected_game['votes']]
                     
                     if len(voting_players) < num_teams:
                         st.error(f"Need at least {num_teams} players! Only {len(voting_players)} voted.")
                     else:
-                        # Sort by rating (descending)
                         sorted_players = sorted(voting_players, key=lambda x: x['rating'], reverse=True)
                         
-                        # Initialize teams
                         teams = [[] for _ in range(num_teams)]
                         team_strengths = [0] * num_teams
                         
-                        # Snake draft distribution
                         for i, player in enumerate(sorted_players):
-                            # Determine which team gets this player (snake pattern)
                             round_num = i // num_teams
                             if round_num % 2 == 0:
                                 team_idx = i % num_teams
@@ -362,7 +414,6 @@ else:
                             teams[team_idx].append(player)
                             team_strengths[team_idx] += player['rating']
                         
-                        # Store in session state
                         st.session_state.generated_teams = teams
                         st.session_state.team_strengths = team_strengths
                         st.session_state.selected_game_id = selected_game['id']
@@ -377,7 +428,6 @@ else:
                     
                     teams = st.session_state.generated_teams
                     
-                    # Team names and captains
                     team_names = []
                     team_captains = []
                     
@@ -387,14 +437,11 @@ else:
                         with cols[i]:
                             st.markdown(f"### Team {i+1}")
                             
-                            # Team name
                             team_name = st.text_input(f"Team Name", value=f"Team {chr(65+i)}", key=f"team_name_{i}")
                             team_names.append(team_name)
                             
-                            # Team strength
                             st.metric("Total Strength", st.session_state.team_strengths[i])
                             
-                            # Captain selection
                             if teams[i]:
                                 captain = st.selectbox(
                                     "Captain",
@@ -403,7 +450,6 @@ else:
                                 )
                                 team_captains.append(captain)
                                 
-                                # Display players
                                 st.write("**Players:**")
                                 for player in teams[i]:
                                     if player['name'] == captain:
@@ -413,7 +459,7 @@ else:
                             else:
                                 st.warning("No players in this team")
                     
-                    # Manual adjustment section
+                    # Manual adjustment
                     st.markdown("---")
                     st.subheader("5️⃣ Manual Adjustments (Optional)")
                     
@@ -421,7 +467,6 @@ else:
                         col1, col2, col3 = st.columns(3)
                         
                         with col1:
-                            # Select player to move
                             all_team_players = []
                             for i, team in enumerate(teams):
                                 for player in team:
@@ -431,25 +476,21 @@ else:
                                 player_to_move = st.selectbox("Select Player", all_team_players)
                         
                         with col2:
-                            # Select destination team
                             dest_team = st.selectbox("Move to Team", [f"Team {i+1}" for i in range(num_teams)])
                         
                         with col3:
                             st.write("")
                             st.write("")
                             if st.button("↔️ Move Player"):
-                                # Extract player name and current team
                                 player_name = player_to_move.split(" (Team")[0]
                                 current_team_idx = int(player_to_move.split("Team ")[1].rstrip(")")) - 1
                                 dest_team_idx = int(dest_team.split(" ")[1]) - 1
                                 
-                                # Find and move player
                                 for player in teams[current_team_idx]:
                                     if player['name'] == player_name:
                                         teams[current_team_idx].remove(player)
                                         teams[dest_team_idx].append(player)
                                         
-                                        # Recalculate strengths
                                         st.session_state.team_strengths[current_team_idx] -= player['rating']
                                         st.session_state.team_strengths[dest_team_idx] += player['rating']
                                         
@@ -457,10 +498,9 @@ else:
                                         st.rerun()
                                         break
                     
-                    # Save teams button
+                    # Finalize teams
                     st.markdown("---")
                     if st.button("💾 Finalize Teams", type="primary"):
-                        # Store finalized teams with names and captains
                         finalized_teams = []
                         for i in range(num_teams):
                             finalized_teams.append({
@@ -470,7 +510,6 @@ else:
                                 'strength': st.session_state.team_strengths[i]
                             })
                         
-                        # Store for match results
                         st.session_state.finalized_teams = finalized_teams
                         st.session_state.finalized_game_id = selected_game['id']
                         
@@ -480,13 +519,15 @@ else:
         else:
             st.warning("⚠️ Admin access required")
     
+    # ========================================================================
+    # PAGE: MATCH RESULTS
+    # ========================================================================
+    
     elif page == "Match Results":
         st.header("📊 Match Results")
         
-        # ADMIN ONLY
         if st.session_state.user_role in ["master_admin", "admin"]:
             
-            # Check if teams are finalized
             if 'finalized_teams' not in st.session_state:
                 st.warning("⚠️ No teams finalized yet. Generate teams first in Team Generator.")
             else:
@@ -519,10 +560,8 @@ else:
                 team_names = [team['name'] for team in finalized_teams]
                 winner = st.selectbox("Select Winning Team", team_names)
                 
-                # Record button
                 if st.button("💾 Record Match Result", type="primary"):
                     
-                    # Create match record
                     match_record = {
                         'date': datetime.now().strftime('%Y-%m-%d'),
                         'game_id': st.session_state.finalized_game_id,
@@ -531,28 +570,25 @@ else:
                         'num_teams': num_teams
                     }
                     
-                    # Initialize matches list if doesn't exist
-                    if 'matches' not in st.session_state:
-                        st.session_state.matches = []
-                    
                     st.session_state.matches.append(match_record)
+                    save_matches()
                     
                     # Update player stats
                     winning_team = next(team for team in finalized_teams if team['name'] == winner)
                     winning_players = winning_team['players']
                     
-                    # All players who played
                     all_playing_players = []
                     for team in finalized_teams:
                         all_playing_players.extend(team['players'])
                     
-                    # Update each player
                     for player in st.session_state.players:
                         if player['name'] in all_playing_players:
                             player['matches_played'] += 1
                             if player['name'] in winning_players:
                                 player['matches_won'] += 1
                                 player['points'] += 1
+                    
+                    save_players()
                     
                     st.success(f"✅ Match recorded! {winner} wins! 🏆")
                     st.balloons()
@@ -566,7 +602,7 @@ else:
                     st.info("Teams cleared. Generate new teams for next match.")
                 
                 # Show recent matches
-                if 'matches' in st.session_state and st.session_state.matches:
+                if st.session_state.matches:
                     st.markdown("---")
                     st.subheader("📜 Recent Matches")
                     
@@ -585,26 +621,24 @@ else:
         else:
             st.warning("⚠️ Admin access required")
     
+    # ========================================================================
+    # PAGE: LEADERBOARD
+    # ========================================================================
+    
     elif page == "Leaderboard":
         st.header("🏆 Leaderboard")
         
-        # Two sections: Match History + Player Rankings
         tab1, tab2 = st.tabs(["📜 Match History", "👤 Player Rankings"])
         
-        # ============================================================================
-        # TAB 1: MATCH HISTORY
-        # ============================================================================
-        
+        # Match History
         with tab1:
-            if 'matches' not in st.session_state or not st.session_state.matches:
+            if not st.session_state.matches:
                 st.info("No matches played yet")
             else:
                 st.subheader("📜 Match History")
                 
-                # Create table data
                 match_data = []
                 for match in reversed(st.session_state.matches):
-                    # Find winning captain
                     winning_team = next(team for team in match['teams'] if team['name'] == match['winner'])
                     
                     match_data.append({
@@ -617,20 +651,15 @@ else:
                 df = pd.DataFrame(match_data)
                 st.dataframe(df, use_container_width=True, hide_index=True)
         
-        # ============================================================================
-        # TAB 2: PLAYER RANKINGS
-        # ============================================================================
-        
+        # Player Rankings
         with tab2:
             if not st.session_state.players:
                 st.info("No players registered yet")
             else:
                 st.subheader("👤 Player Rankings")
                 
-                # Sort by points
                 leaderboard = sorted(st.session_state.players, key=lambda x: x['points'], reverse=True)
                 
-                # Create table
                 lb_data = []
                 for i, player in enumerate(leaderboard, 1):
                     win_rate = (player['matches_won'] / player['matches_played'] * 100) if player['matches_played'] > 0 else 0
