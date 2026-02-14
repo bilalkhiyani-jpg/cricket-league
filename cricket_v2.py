@@ -243,9 +243,6 @@ else:
                         else:
                             st.error("Enter a name!")
 
-            st.session_state.players.append(player)
-            save_players()  # ← Add this
-            st.success(f"✅ {new_name} added!")
             
             # EDIT/DELETE PLAYER
             with col2:
