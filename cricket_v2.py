@@ -14,6 +14,7 @@ DATA_DIR = "cricket_data"
 PLAYERS_FILE = f"{DATA_DIR}/players.json"
 GAMES_FILE = f"{DATA_DIR}/games.json"
 MATCHES_FILE = f"{DATA_DIR}/matches.json"
+FINALIZED_FILE = f"{DATA_DIR}/finalized_teams.json"
 
 # Create data directory
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -54,6 +55,28 @@ def load_matches():
             return json.load(f)
     return []
 
+def save_finalized_teams():
+    """Save finalized teams to JSON"""
+    data = {
+        'teams': st.session_state.get('finalized_teams', []),
+        'game_id': st.session_state.get('finalized_game_id', None)
+    }
+    with open(FINALIZED_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
+
+def load_finalized_teams():
+    """Load finalized teams from JSON"""
+    if os.path.exists(FINALIZED_FILE):
+        with open(FINALIZED_FILE, 'r') as f:
+            data = json.load(f)
+            return data.get('teams'), data.get('game_id')
+    return None, None
+
+def clear_finalized_teams():
+    """Clear finalized teams file"""
+    if os.path.exists(FINALIZED_FILE):
+        os.remove(FINALIZED_FILE)
+
 # ============================================================================
 # AUTHENTICATION
 # ============================================================================
@@ -81,6 +104,13 @@ if 'players' not in st.session_state:
     st.session_state.players = load_players()
 if 'matches' not in st.session_state:
     st.session_state.matches = load_matches()
+
+# Load finalized teams
+if 'finalized_teams' not in st.session_state:
+    teams, game_id = load_finalized_teams()
+    if teams:
+        st.session_state.finalized_teams = teams
+        st.session_state.finalized_game_id = game_id
 
 # ============================================================================
 # LOGIN PAGE
@@ -512,6 +542,7 @@ else:
                         
                         st.session_state.finalized_teams = finalized_teams
                         st.session_state.finalized_game_id = selected_game['id']
+                        save_finalized_teams()
                         
                         st.success("✅ Teams finalized! Go to Match Results to record the game.")
                         st.balloons()
@@ -598,6 +629,8 @@ else:
                     del st.session_state.finalized_game_id
                     if 'generated_teams' in st.session_state:
                         del st.session_state.generated_teams
+                    
+                    clear_finalized_teams()
                     
                     st.info("Teams cleared. Generate new teams for next match.")
                 
