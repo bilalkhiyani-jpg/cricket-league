@@ -12,9 +12,11 @@ if 'user_role' not in st.session_state:
 if 'username' not in st.session_state:
     st.session_state.username = None
 if 'games' not in st.session_state:
-    st.session_state.games = []
+    st.session_state.games = load_games()
 if 'players' not in st.session_state:
-    st.session_state.players = []
+    st.session_state.players = load_players()
+if 'matches' not in st.session_state:
+    st.session_state.matches = load_matches()
 
 # Master admin credentials
 MASTER_ADMIN_PASSWORD = "cricket2026"
@@ -240,6 +242,10 @@ else:
                                 st.rerun()
                         else:
                             st.error("Enter a name!")
+
+            st.session_state.players.append(player)
+            save_players()  # ← Add this
+            st.success(f"✅ {new_name} added!")
             
             # EDIT/DELETE PLAYER
             with col2:
