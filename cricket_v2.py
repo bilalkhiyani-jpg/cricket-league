@@ -584,4 +584,62 @@ else:
     
     elif page == "Leaderboard":
         st.header("🏆 Leaderboard")
-        st.info("Coming in next step...")
+        
+        # Two sections: Match History + Player Rankings
+        tab1, tab2 = st.tabs(["📜 Match History", "👤 Player Rankings"])
+        
+        # ============================================================================
+        # TAB 1: MATCH HISTORY
+        # ============================================================================
+        
+        with tab1:
+            if 'matches' not in st.session_state or not st.session_state.matches:
+                st.info("No matches played yet")
+            else:
+                st.subheader("📜 Match History")
+                
+                # Create table data
+                match_data = []
+                for match in reversed(st.session_state.matches):
+                    # Find winning captain
+                    winning_team = next(team for team in match['teams'] if team['name'] == match['winner'])
+                    
+                    match_data.append({
+                        'Date': match['date'],
+                        'Winner': match['winner'],
+                        'Captain': winning_team['captain'],
+                        'Teams': match['num_teams']
+                    })
+                
+                df = pd.DataFrame(match_data)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+        
+        # ============================================================================
+        # TAB 2: PLAYER RANKINGS
+        # ============================================================================
+        
+        with tab2:
+            if not st.session_state.players:
+                st.info("No players registered yet")
+            else:
+                st.subheader("👤 Player Rankings")
+                
+                # Sort by points
+                leaderboard = sorted(st.session_state.players, key=lambda x: x['points'], reverse=True)
+                
+                # Create table
+                lb_data = []
+                for i, player in enumerate(leaderboard, 1):
+                    win_rate = (player['matches_won'] / player['matches_played'] * 100) if player['matches_played'] > 0 else 0
+                    lb_data.append({
+                        'Rank': f"#{i}",
+                        'Player': player['name'],
+                        'Points': player['points'],
+                        'Matches': player['matches_played'],
+                        'Wins': player['matches_won'],
+                        'Win Rate': f"{win_rate:.1f}%",
+                        'Rating': player['rating']
+                    })
+                
+                df = pd.DataFrame(lb_data)
+                st.dataframe(df, use_container_width=True, hide_index=True)
