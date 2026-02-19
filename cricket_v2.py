@@ -1,81 +1,122 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 import json
-import os
 
 st.set_page_config(page_title="PK Expat Cricket", page_icon="🏏", layout="wide")
 
 # ============================================================================
-# DATA PERSISTENCE SETUP
+# GOOGLE SHEETS SETUP
 # ============================================================================
 
-DATA_DIR = "cricket_data"
-PLAYERS_FILE = f"{DATA_DIR}/players.json"
-GAMES_FILE = f"{DATA_DIR}/games.json"
-MATCHES_FILE = f"{DATA_DIR}/matches.json"
-FINALIZED_FILE = f"{DATA_DIR}/finalized_teams.json"
+# Credentials from Streamlit secrets
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
 
-# Create data directory
-os.makedirs(DATA_DIR, exist_ok=True)
+# Get credentials from secrets
+credentials_dict = st.secrets["gcp_service_account"]
+credentials = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
+gc = gspread.authorize(credentials)
 
-def save_players():
-    """Save players to JSON"""
-    with open(PLAYERS_FILE, 'w') as f:
-        json.dump(st.session_state.players, f, indent=2)
+# Open the spreadsheet
+SHEET_ID = "1D7UKzNNOQczbO5puSbGWHFwRt58Erk_G44hleUlMZlg"
+sh = gc.open_by_key(SHEET_ID)
+
+# Get worksheets
+players_sheet = sh.worksheet("Players")
+matches_sheet = sh.worksheet("Matches")
+games_sheet = sh.worksheet("Games")
+
+# ============================================================================
+# DATA PERSISTENCE FUNCTIONS
+# ============================================================================
+
+def save_players(players):
+    """Save players to Google Sheets"""
+    players_sheet.clear()
+    if players:
+        # Header
+        players_sheet.append_row(['name', 'rating', 'strength', 'matches_played', 'matches_won', 'points'])
+        # Data
+        for p in players:
+            players_sheet.append_row([
+                p['name'],
+                p['rating'],
+                p['strength'],
+                p['matches_played'],
+                p['matches_won'],
+                p['points']
+            ])
 
 def load_players():
-    """Load players from JSON"""
-    if os.path.exists(PLAYERS_FILE):
-        with open(PLAYERS_FILE, 'r') as f:
-            return json.load(f)
-    return []
+    """Load players from Google Sheets"""
+    try:
+        data = players_sheet.get_all_records()
+        return data if data else []
+    except:
+        return []
 
-def save_games():
-    """Save games to JSON"""
-    with open(GAMES_FILE, 'w') as f:
-        json.dump(st.session_state.games, f, indent=2)
+def save_games(games):
+    """Save games to Google Sheets"""
+    games_sheet.clear()
+    if games:
+        # Header
+        games_sheet.append_row(['id', 'date', 'time', 'location', 'type', 'max_players', 'votes', 'created_by'])
+        # Data
+        for g in games:
+            games_sheet.append_row([
+                g['id'],
+                g['date'],
+                g['time'],
+                g['location'],
+                g['type'],
+                g['max_players'],
+                ','.join(g['votes']),  # Convert list to comma-separated string
+                g['created_by']
+            ])
 
 def load_games():
-    """Load games from JSON"""
-    if os.path.exists(GAMES_FILE):
-        with open(GAMES_FILE, 'r') as f:
-            return json.load(f)
-    return []
+    """Load games from Google Sheets"""
+    try:
+        data = games_sheet.get_all_records()
+        # Convert votes back to list
+        for game in data:
+            game['votes'] = game['votes'].split(',') if game['votes'] else []
+        return data if data else []
+    except:
+        return []
 
-def save_matches():
-    """Save matches to JSON"""
-    with open(MATCHES_FILE, 'w') as f:
-        json.dump(st.session_state.matches, f, indent=2)
+def save_matches(matches):
+    """Save matches to Google Sheets"""
+    matches_sheet.clear()
+    if matches:
+        # Header
+        matches_sheet.append_row(['date', 'game_id', 'winner', 'num_teams', 'teams_data'])
+        # Data
+        for m in matches:
+            matches_sheet.append_row([
+                m['date'],
+                m['game_id'],
+                m['winner'],
+                m['num_teams'],
+                json.dumps(m['teams'])  # Convert teams to JSON string
+            ])
 
 def load_matches():
-    """Load matches from JSON"""
-    if os.path.exists(MATCHES_FILE):
-        with open(MATCHES_FILE, 'r') as f:
-            return json.load(f)
-    return []
-
-def save_finalized_teams():
-    """Save finalized teams to JSON"""
-    data = {
-        'teams': st.session_state.get('finalized_teams', []),
-        'game_id': st.session_state.get('finalized_game_id', None)
-    }
-    with open(FINALIZED_FILE, 'w') as f:
-        json.dump(data, f, indent=2)
-
-def load_finalized_teams():
-    """Load finalized teams from JSON"""
-    if os.path.exists(FINALIZED_FILE):
-        with open(FINALIZED_FILE, 'r') as f:
-            data = json.load(f)
-            return data.get('teams'), data.get('game_id')
-    return None, None
-
-def clear_finalized_teams():
-    """Clear finalized teams file"""
-    if os.path.exists(FINALIZED_FILE):
-        os.remove(FINALIZED_FILE)
+    """Load matches from Google Sheets"""
+    try:
+        data = matches_sheet.get_all_records()
+        # Convert teams back from JSON
+        for match in data:
+            match['teams'] = json.loads(match['teams_data'])
+            del match['teams_data']
+        return data if data else []
+    except:
+        return []
 
 # ============================================================================
 # AUTHENTICATION
@@ -104,13 +145,6 @@ if 'players' not in st.session_state:
     st.session_state.players = load_players()
 if 'matches' not in st.session_state:
     st.session_state.matches = load_matches()
-
-# Load finalized teams
-if 'finalized_teams' not in st.session_state:
-    teams, game_id = load_finalized_teams()
-    if teams:
-        st.session_state.finalized_teams = teams
-        st.session_state.finalized_game_id = game_id
 
 # ============================================================================
 # LOGIN PAGE
@@ -236,7 +270,7 @@ else:
                         'created_by': st.session_state.username
                     }
                     st.session_state.games.append(game)
-                    save_games()
+                    save_games(st.session_state.games)
                     st.success(f"✅ Game created!")
                     st.rerun()
             
@@ -272,13 +306,13 @@ else:
                                 st.success("✅ You're in!")
                                 if st.button("❌ Cancel", key=f"cancel_{game['id']}"):
                                     game['votes'].remove(player_name)
-                                    save_games()
+                                    save_games(st.session_state.games)
                                     st.rerun()
                             else:
                                 if st.button("✅ I'm In!", key=f"join_{game['id']}"):
                                     if len(game['votes']) < game['max_players']:
                                         game['votes'].append(player_name)
-                                        save_games()
+                                        save_games(st.session_state.games)
                                         st.rerun()
                                     else:
                                         st.error("Game is full!")
@@ -287,7 +321,7 @@ else:
                         if st.session_state.user_role in ["master_admin", "admin"]:
                             if st.button("🗑️ Delete", key=f"delete_{game['id']}"):
                                 st.session_state.games = [g for g in st.session_state.games if g['id'] != game['id']]
-                                save_games()
+                                save_games(st.session_state.games)
                                 st.rerun()
         else:
             st.info("No games scheduled yet")
@@ -325,7 +359,7 @@ else:
                                     'points': 0
                                 }
                                 st.session_state.players.append(player)
-                                save_players()
+                                save_players(st.session_state.players)
                                 st.success(f"✅ {new_name} added!")
                                 st.rerun()
                         else:
@@ -353,14 +387,14 @@ else:
                             if st.form_submit_button("💾 Update"):
                                 player_data['rating'] = edit_rating
                                 player_data['strength'] = edit_strength
-                                save_players()
+                                save_players(st.session_state.players)
                                 st.success(f"✅ {selected_player} updated!")
                                 st.rerun()
                         
                         with col_b:
                             if st.form_submit_button("🗑️ Delete"):
                                 st.session_state.players = [p for p in st.session_state.players if p['name'] != selected_player]
-                                save_players()
+                                save_players(st.session_state.players)
                                 st.success(f"🗑️ {selected_player} deleted!")
                                 st.rerun()
                 else:
@@ -542,7 +576,6 @@ else:
                         
                         st.session_state.finalized_teams = finalized_teams
                         st.session_state.finalized_game_id = selected_game['id']
-                        save_finalized_teams()
                         
                         st.success("✅ Teams finalized! Go to Match Results to record the game.")
                         st.balloons()
@@ -602,7 +635,7 @@ else:
                     }
                     
                     st.session_state.matches.append(match_record)
-                    save_matches()
+                    save_matches(st.session_state.matches)
                     
                     # Update player stats
                     winning_team = next(team for team in finalized_teams if team['name'] == winner)
@@ -619,7 +652,7 @@ else:
                                 player['matches_won'] += 1
                                 player['points'] += 1
                     
-                    save_players()
+                    save_players(st.session_state.players)
                     
                     st.success(f"✅ Match recorded! {winner} wins! 🏆")
                     st.balloons()
@@ -629,8 +662,6 @@ else:
                     del st.session_state.finalized_game_id
                     if 'generated_teams' in st.session_state:
                         del st.session_state.generated_teams
-                    
-                    clear_finalized_teams()
                     
                     st.info("Teams cleared. Generate new teams for next match.")
                 
